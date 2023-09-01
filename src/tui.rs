@@ -1,11 +1,20 @@
-use std::{io::{self, Stdout}, thread, time::Duration};
+use std::{
+    io::{self, Stdout},
+    thread,
+    time::Duration,
+};
 
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture, self},
+    event::{self, DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::{prelude::CrosstermBackend, Terminal, widgets::{Block, Borders}};
+use ratatui::{
+    layout::Layout,
+    prelude::{Backend, Constraint, CrosstermBackend},
+    widgets::{Block, Borders},
+    Frame, Terminal,
+};
 
 #[derive(Debug)]
 pub struct Tui {
@@ -22,10 +31,33 @@ impl Tui {
     }
 
     pub fn run(&mut self) -> Result<(), io::Error> {
-        execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+        self.prolog()?;
 
+        self.terminal.draw(|frame| {
+            let chunks = Layout::default()
+                .direction(ratatui::prelude::Direction::Horizontal)
+                .margin(1)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+                .split(frame.size());
+
+            let input = Block::default().title("Input").borders(Borders::ALL);
+            let file_content = Block::default().title("File content").borders(Borders::ALL);
+
+            frame.render_widget(input, chunks[0]);
+            frame.render_widget(file_content, chunks[1]);
+        })?;
         thread::sleep(Duration::from_secs(1));
 
+        self.epilog()?;
+        Ok(())
+    }
+
+    fn prolog(&mut self) -> Result<(), io::Error> {
+        execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+        Ok(())
+    }
+
+    fn epilog(&mut self) -> Result<(), io::Error> {
         execute!(
             self.terminal.backend_mut(),
             LeaveAlternateScreen,
