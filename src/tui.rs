@@ -31,7 +31,7 @@ impl Tui {
         self.prolog()?;
 
         let mut should_run = true;
-        let mut input = Input::new(String::new());
+        let mut prompt = Input::new(String::new());
 
         while should_run {
             self.terminal.draw(|frame| {
@@ -43,11 +43,11 @@ impl Tui {
 
                 let input_chunk = Layout::default()
                     .direction(Direction::Vertical)
-                    .constraints([Constraint::Percentage(92), Constraint::Percentage(8)].as_ref())
+                    .constraints([Constraint::Percentage(95), Constraint::Percentage(5)].as_ref())
                     .split(main_ui[0]);
 
                 let results = Block::default().title("Files").borders(Borders::ALL);
-                let input_field = Paragraph::new(input.value())
+                let input_field = Paragraph::new(prompt.value())
                     .block(Block::default().title("Input").borders(Borders::ALL));
                 let file_content = Block::default().title("File content").borders(Borders::ALL);
 
@@ -60,7 +60,7 @@ impl Tui {
                 match key.code {
                     KeyCode::Esc => should_run = false,
                     _ => {
-                        input.handle_event(&Event::Key(key));
+                        prompt.handle_event(&Event::Key(key));
                     }
                 }
             }
