@@ -15,8 +15,14 @@ pub enum NucleError {
 
 pub fn run() -> Result<(), NucleError> {
     let args = cli::Cli::parse();
+    let dir_walker = get_dir_walker()?;
     let mut tui = Tui::new()?;
 
     tui.run()?;
     Ok(())
+}
+
+fn get_dir_walker() -> Result<WalkDir, io::Error> {
+    let current_dir = env::current_dir()?;
+    Ok(WalkDir::new(current_dir))
 }
