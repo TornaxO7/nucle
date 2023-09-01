@@ -1,6 +1,10 @@
-use std::{io::{self, Stdout}, path::PathBuf};
+use std::{
+    io::{self, Stdout},
+    path::PathBuf,
+    thread, sync::mpsc::channel,
+};
 
-use async_std::stream::StreamExt;
+use walkdir::WalkDir;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -9,11 +13,10 @@ use crossterm::{
 use ratatui::{
     layout::Layout,
     prelude::{Backend, Constraint, CrosstermBackend, Direction},
-    widgets::{Block, Borders, Paragraph, List, ListItem},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame, Terminal,
 };
 use tui_input::{backend::crossterm::EventHandler, Input};
-use async_walkdir::WalkDir;
 
 #[derive(Debug)]
 pub struct Tui {
@@ -29,25 +32,31 @@ impl Tui {
         Ok(Self { terminal })
     }
 
-    pub async fn run(&mut self, mut walkdir: WalkDir) -> Result<(), io::Error> {
+    pub fn run(&mut self, walkdir: WalkDir) -> Result<(), io::Error> {
         self.prolog()?;
 
         let mut should_run = true;
         let mut prompt = Input::new(String::new());
         let mut paths: Vec<PathBuf> = Vec::new();
 
-        while let Some(entry) = walkdir.next().await {
-            if let Ok(entry) = entry {
-                if let Ok(filetype) = entry.file_type().await {
-                    if filetype.is_file() {
-                        paths.push(entry.path());
+        let (tx, rx) = channel();
+
+        thread::spawn(move || {
+            for entry in walkdir.into_iter() {
+                if let Ok(entry) = entry {
+                    if entry.file_type().is_file() {
+                        tx.send(entry.path().to_path_buf()).unwrap();
                     }
                 }
             }
-        }
+        });
 
         while should_run {
             self.terminal.draw(|frame| ui(frame, &prompt, &paths))?;
+
+            for path in rx.try_iter() {
+                paths.push(path);
+            }
 
             if let Event::Key(key) = event::read()? {
                 match key.code {
@@ -94,16 +103,18 @@ fn ui<'a, B: Backend + 'a>(frame: &mut Frame<B>, prompt: &Input, paths: &Vec<Pat
         .split(main_ui[0]);
 
     let results = {
-        let items: Vec<ListItem> = paths.into_iter()
+        let items: Vec<ListItem> = paths
+            .into_iter()
             .map(|path| ListItem::new(path.to_str().unwrap()))
             .collect();
 
-        List::new(items)
-            .block(Block::default().title("Paths").borders(Borders::ALL))
+        List::new(items).block(Block::default().title("Paths").borders(Borders::ALL))
     };
     let input_field =
         Paragraph::new(prompt.value()).block(Block::default().title("Input").borders(Borders::ALL));
-    let file_content = Block::default().title("File content").borders(Borders::ALL);
+    // let file_content = Block::default().title("File content").borders(Borders::ALL);
+    let file_content = Paragraph::new(format!("Amount entries: {}", paths.len()))
+        .block(Block::default().title("Amount found").borders(Borders::ALL));
 
     frame.render_widget(results, input_chunk[0]);
     frame.render_widget(input_field, input_chunk[1]);

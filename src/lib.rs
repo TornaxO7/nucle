@@ -5,7 +5,7 @@ use std::{env, io};
 
 use clap::Parser;
 use tui::Tui;
-use async_walkdir::WalkDir;
+use walkdir::WalkDir;
 
 #[derive(thiserror::Error, Debug)]
 pub enum NucleError {
@@ -13,12 +13,12 @@ pub enum NucleError {
     IO(#[from] io::Error),
 }
 
-pub async fn run() -> Result<(), NucleError> {
+pub fn run() -> Result<(), NucleError> {
     let args = cli::Cli::parse();
     let walkdir = get_walkdir()?;
     let mut tui = Tui::new()?;
 
-    tui.run(walkdir).await;
+    tui.run(walkdir);
     Ok(())
 }
 
