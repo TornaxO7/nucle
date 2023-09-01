@@ -11,6 +11,7 @@ keywords = ["cli", "fuzzy-search"]
 
 [dependencies]
 clap = {version = "4.4.2", features = ["derive"]}
+crossterm = "0.27.0"
 nucleo = "0.2.0"
 ratatui = "0.23.0"
 thiserror = "1.0.47"
