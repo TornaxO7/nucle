@@ -11,7 +11,7 @@ use crossterm::{
 };
 use ratatui::{
     layout::Layout,
-    prelude::{Backend, Constraint, CrosstermBackend},
+    prelude::{Backend, Constraint, CrosstermBackend, Direction},
     widgets::{Block, Borders},
     Frame, Terminal,
 };
@@ -34,19 +34,26 @@ impl Tui {
         self.prolog()?;
 
         self.terminal.draw(|frame| {
-            let chunks = Layout::default()
-                .direction(ratatui::prelude::Direction::Horizontal)
+            let main_ui = Layout::default()
+                .direction(Direction::Horizontal)
                 .margin(1)
                 .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
                 .split(frame.size());
 
-            let input = Block::default().title("Input").borders(Borders::ALL);
+            let input_chunk = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Percentage(90), Constraint::Percentage(10)].as_ref())
+                .split(main_ui[0]);
+
+            let results = Block::default().title("Files").borders(Borders::ALL);
+            let input_field = Block::default().title("Input").borders(Borders::ALL);
             let file_content = Block::default().title("File content").borders(Borders::ALL);
 
-            frame.render_widget(input, chunks[0]);
-            frame.render_widget(file_content, chunks[1]);
+            frame.render_widget(results, input_chunk[0]);
+            frame.render_widget(input_field, input_chunk[1]);
+            frame.render_widget(file_content, main_ui[1]);
         })?;
-        thread::sleep(Duration::from_secs(1));
+        thread::sleep(Duration::from_secs(5));
 
         self.epilog()?;
         Ok(())
