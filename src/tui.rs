@@ -1,7 +1,9 @@
 use std::{
     io::{self, Stdout},
     path::PathBuf,
-    thread, sync::mpsc::{channel, Sender},
+    process::Command,
+    sync::mpsc::{channel, Sender},
+    thread,
 };
 
 use crossterm::{
@@ -36,17 +38,10 @@ impl Tui {
 
         let mut should_run = true;
         let mut prompt = Input::new(String::new());
-        let mut paths: Vec<PathBuf> = Vec::new();
-
-        let (tx, rx) = channel();
-        collect_paths(tx);
+        let paths = collect_paths();
 
         while should_run {
             self.terminal.draw(|frame| ui(frame, &prompt, &paths))?;
-
-            for path in rx.try_iter() {
-                paths.push(path);
-            }
 
             if let Event::Key(key) = event::read()? {
                 match key.code {
@@ -80,7 +75,7 @@ impl Tui {
     }
 }
 
-fn ui<'a, B: Backend + 'a>(frame: &mut Frame<B>, prompt: &Input, paths: &Vec<PathBuf>) {
+fn ui<'a, B: Backend + 'a>(frame: &mut Frame<B>, prompt: &Input, paths: &Vec<String>) {
     let main_ui = Layout::default()
         .direction(Direction::Horizontal)
         .margin(1)
@@ -95,7 +90,7 @@ fn ui<'a, B: Backend + 'a>(frame: &mut Frame<B>, prompt: &Input, paths: &Vec<Pat
     let results = {
         let items: Vec<ListItem> = paths
             .into_iter()
-            .map(|path| ListItem::new(path.to_str().unwrap()))
+            .map(|path| ListItem::new(path.as_str()))
             .collect();
 
         List::new(items).block(Block::default().title("Paths").borders(Borders::ALL))
@@ -111,5 +106,16 @@ fn ui<'a, B: Backend + 'a>(frame: &mut Frame<B>, prompt: &Input, paths: &Vec<Pat
     frame.render_widget(file_content, main_ui[1]);
 }
 
-fn collect_paths(tx: Sender<PathBuf>) {
+fn collect_paths() -> Vec<String> {
+    let output = Command::new("rg")
+        .args(["--files", "--engine=pcre2"])
+        .output()
+        .unwrap();
+
+    output
+        .stdout
+        .split(|&c| c == '\n' as u8)
+        .filter(|c| !c.is_empty())
+        .map(|bytes| String::from_utf8(bytes.to_vec()).unwrap())
+        .collect()
 }

@@ -1,7 +1,7 @@
 mod cli;
 mod tui;
 
-use std::{env, io};
+use std::{env, io::{self, Write}, process::Command};
 
 use clap::Parser;
 use tui::Tui;
