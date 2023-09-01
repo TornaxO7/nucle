@@ -1,5 +1,6 @@
-use std::io::{self, Stdout};
+use std::{io::{self, Stdout}, path::PathBuf};
 
+use async_std::stream::StreamExt;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -8,10 +9,11 @@ use crossterm::{
 use ratatui::{
     layout::Layout,
     prelude::{Backend, Constraint, CrosstermBackend, Direction},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Paragraph, List, ListItem},
     Frame, Terminal,
 };
 use tui_input::{backend::crossterm::EventHandler, Input};
+use async_walkdir::WalkDir;
 
 #[derive(Debug)]
 pub struct Tui {
@@ -27,14 +29,25 @@ impl Tui {
         Ok(Self { terminal })
     }
 
-    pub fn run(&mut self) -> Result<(), io::Error> {
+    pub async fn run(&mut self, mut walkdir: WalkDir) -> Result<(), io::Error> {
         self.prolog()?;
 
         let mut should_run = true;
         let mut prompt = Input::new(String::new());
+        let mut paths: Vec<PathBuf> = Vec::new();
+
+        while let Some(entry) = walkdir.next().await {
+            if let Ok(entry) = entry {
+                if let Ok(filetype) = entry.file_type().await {
+                    if filetype.is_file() {
+                        paths.push(entry.path());
+                    }
+                }
+            }
+        }
 
         while should_run {
-            self.terminal.draw(|frame| ui(frame, &prompt))?;
+            self.terminal.draw(|frame| ui(frame, &prompt, &paths))?;
 
             if let Event::Key(key) = event::read()? {
                 match key.code {
@@ -68,7 +81,7 @@ impl Tui {
     }
 }
 
-fn ui<B: Backend>(frame: &mut Frame<B>, prompt: &Input) {
+fn ui<'a, B: Backend + 'a>(frame: &mut Frame<B>, prompt: &Input, paths: &Vec<PathBuf>) {
     let main_ui = Layout::default()
         .direction(Direction::Horizontal)
         .margin(1)
@@ -80,7 +93,14 @@ fn ui<B: Backend>(frame: &mut Frame<B>, prompt: &Input) {
         .constraints([Constraint::Percentage(95), Constraint::Percentage(5)].as_ref())
         .split(main_ui[0]);
 
-    let results = Block::default().title("Files").borders(Borders::ALL);
+    let results = {
+        let items: Vec<ListItem> = paths.into_iter()
+            .map(|path| ListItem::new(path.to_str().unwrap()))
+            .collect();
+
+        List::new(items)
+            .block(Block::default().title("Paths").borders(Borders::ALL))
+    };
     let input_field =
         Paragraph::new(prompt.value()).block(Block::default().title("Input").borders(Borders::ALL));
     let file_content = Block::default().title("File content").borders(Borders::ALL);
