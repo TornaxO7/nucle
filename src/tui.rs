@@ -1,10 +1,9 @@
 use std::{
     io::{self, Stdout},
     path::PathBuf,
-    thread, sync::mpsc::channel,
+    thread, sync::mpsc::{channel, Sender},
 };
 
-use walkdir::WalkDir;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -32,7 +31,7 @@ impl Tui {
         Ok(Self { terminal })
     }
 
-    pub fn run(&mut self, walkdir: WalkDir) -> Result<(), io::Error> {
+    pub fn run(&mut self) -> Result<(), io::Error> {
         self.prolog()?;
 
         let mut should_run = true;
@@ -40,16 +39,7 @@ impl Tui {
         let mut paths: Vec<PathBuf> = Vec::new();
 
         let (tx, rx) = channel();
-
-        thread::spawn(move || {
-            for entry in walkdir.into_iter() {
-                if let Ok(entry) = entry {
-                    if entry.file_type().is_file() {
-                        tx.send(entry.path().to_path_buf()).unwrap();
-                    }
-                }
-            }
-        });
+        collect_paths(tx);
 
         while should_run {
             self.terminal.draw(|frame| ui(frame, &prompt, &paths))?;
@@ -119,4 +109,7 @@ fn ui<'a, B: Backend + 'a>(frame: &mut Frame<B>, prompt: &Input, paths: &Vec<Pat
     frame.render_widget(results, input_chunk[0]);
     frame.render_widget(input_field, input_chunk[1]);
     frame.render_widget(file_content, main_ui[1]);
+}
+
+fn collect_paths(tx: Sender<PathBuf>) {
 }
