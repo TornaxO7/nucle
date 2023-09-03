@@ -1,23 +1,21 @@
 mod cli;
+mod tui;
 
-use std::{io, env};
+use std::{env, io::{self, Write}, process::Command};
 
 use clap::Parser;
-use walkdir::WalkDir;
+use tui::Tui;
 
 #[derive(thiserror::Error, Debug)]
 pub enum NucleError {
-    #[error("IO-Error occured: {0}")]
+    #[error("An IO-Error occured: {0}")]
     IO(#[from] io::Error),
 }
 
 pub fn run() -> Result<(), NucleError> {
     let args = cli::Cli::parse();
-    let dir_walker = get_dir_walker()?;
-    Ok(())
-}
+    let mut tui = Tui::new()?;
 
-fn get_dir_walker() -> Result<WalkDir, io::Error> {
-    let current_dir = env::current_dir()?;
-    Ok(WalkDir::new(current_dir))
+    tui.run();
+    Ok(())
 }
